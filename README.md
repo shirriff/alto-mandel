@@ -1,11 +1,11 @@
 # Mandelbrot for the Xerox Alto
 
 ## To build and run:
-* Copy mandel.bcpl and pressml.asm to the Alto (e.g. with FTP)
-* asm pressml.asm
-* bcpl mandel.bcpl
-* bldr/d/l/v mandel pressml
-* mandel
+* Copy *mandel.bcpl* and *pressml.asm* to the Alto (e.g. with FTP)
+* `asm pressml.asm`
+* `bcpl mandel.bcpl`
+* `bldr/d/l/v mandel pressml`
+* `mandel`
 
 This program takes about an hour to run, since the Xerox Alto is not a fast computer.
 
@@ -36,4 +36,8 @@ BCPL has some trivial syntax differences compared to C. Keeping the following in
 * Comparison with *eq* instead of *==*.
 * Arrays defined with *vec*.
 
-More information on BCPL is in the [BCPL Reference Manual](http://bitsavers.org/pdf/xerox/alto/bcpl/BCPL_Reference_Manual_Sep75.pdf)
+More information on BCPL is in the [BCPL Reference Manual](http://bitsavers.org/pdf/xerox/alto/bcpl/BCPL_Reference_Manual_Sep75.pdf).
+
+## Screenshot
+
+![Output from the mandel program](screenshot.png)
