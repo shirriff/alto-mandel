@@ -1,0 +1,241 @@
+	.titl PressMl
+
+; last modified by Butterfield, October 8, 1980  5:57 PM
+; - no longer need definition of BITBLT - 10/8/80
+
+;DoubleAdd(a,b)  -- a,b pointers to double-precision numbers
+;DoubleAddV(a,i) -- a = a+i; where 'i' is a single-precision value
+;DoubleSub(a,b) -- a-b
+;DoubleShr(a) -- shift a right (arithmetically) by one bit
+;DoubleCop(a,b) -- a_b
+;MulDiv(a,b,c) returns (unsigned) a*b/c without losing intermediate precision
+;MulMod(a,b,c) returns (unsigned) (a*b) rem c
+;MulFull(a,b,v) v!0 and v!1 stuffed with (signed) double result a*b
+;DivFull(a,b) -- returns (signed) a/b; where 'a' is a double-precision value
+;Ugt(a,b) returns true if a>b unsigned 16-bit
+;TGr(a,b) returns true if a>b using "true compare"
+;BitBLT(table) -- calls BITBLT
+
+savedPC=1
+temp=2
+extraArguments=3
+SWAT=401		;should be 77400 for real SWAT call
+
+	.srel
+DoubleAdd:		.DoubleAdd
+DoubleSub:		.DoubleSub
+DoubleShr:		.DoubleShr
+DoubleCop:		.DoubleCop
+MulDiv:		.UMulDiv
+MulMod:		.MulMod
+MulFull:		.MulFull
+DivFull:	.DivFull
+DoubleAddV:		.DoubleAddImmediate
+Ugt:			.Ugt
+TGr:		.TGr
+BitBLT:	.BitBLT
+	.ent DoubleAdd,DoubleSub,DoubleShr,DoubleCop,MulDiv,MulMod,MulFull,DoubleAddV,DivFull,Ugt,TGr,BitBLT
+
+	.nrel
+
+
+	0
+
+.BitBLT: sta 3 savedPC,2
+	sta 2,saved2
+	mov 0,2
+	sub 1,1	;AC1_0
+	BITBLT
+	lda 2,saved2
+	lda 3 savedPC,2
+	jmp 1,3
+ 
+.DoubleAdd:
+	sta 3 savedPC,2
+	sta 1 temp,2			; => first word of arg 2
+	mov 1,3
+	lda 1,1,3			; word 2 of arg 2
+	mov 0 3
+	lda 0,1,3			; word 2 of arg 1
+	addz 1,0
+	sta 0,1,3			; word 2 of arg 1
+	lda 0,0,3			; word 1 of arg 1
+	lda 1 @temp,2			; word 1 of arg 2
+	mov 0,0,szc
+	 inc 0,0
+	add 1,0
+	sta 0,0,3			; word 1 of arg 1
+	lda 3 savedPC,2
+	jmp 1,3
+
+
+.DoubleAddImmediate:
+	sta 3 savedPC,2
+	sta	2,saved2
+        mov 0 3			; save arg 1
+	movl# 1 1,snc		; generate high order word of i
+	sub 2 2,skp		; 0 if positive
+	adc 2 2			; -1 if negative
+        lda 0 1 3		; word 2 of arg 1
+        addz 1 0 szc		; add integer
+	 inc	2,2		; add in carry
+        sta 0 1 3		; replace word 2 of arg 1
+	lda 0 0 3		; word 1 of arg 1
+	add 2 0			; result to ac0
+	sta 0 0 3		; store result
+	lda	2,saved2
+        lda 3 savedPC,2
+        jmp 1 3
+
+saved2:	0
+
+.DoubleSub:
+	sta 3 savedPC,2
+	sta 1 temp,2			; => first word of arg 2
+	mov 1 3
+	lda 1,1,3			; word 2 of arg 2
+	mov 0 3
+	lda 0,1,3			; word 2 of arg 1
+	subz 1,0
+	sta 0,1,3			; word 2 of arg 1
+	lda 0,0,3			; word 1 of arg 1
+	lda 1 @temp,2			; word 1 of arg 2
+	mov 0,0,szc
+	 inc 0,0
+	adc 1,0
+	sta 0,0,3			; word 1 of arg 1
+	lda 3 savedPC,2
+	jmp 1,3
+
+
+
+.DoubleShr:
+	sta 3 savedPC,2
+	MOV	0,3			;SAVE POINTER TO NUMBER
+	LDA	0,0,3			;HIGH ORDER PART
+	MOVL#	0,0,SZC			;TEST SIGN BIT
+	 MOVOR	 0,0,SKP		;SHIFT IN A 1
+	MOVZR	0,0			;SHIFT IN A 0
+	STA	0,0,3
+	LDA	1,1,3			;LOW ORDER
+	MOVR	1,1			;SHIFT CARRY BIT IN
+	STA	1,1,3			;AND REPLACE
+	lda 3 savedPC,2
+	jmp 1,3				;RETURN INTEGER PART...
+
+
+.DoubleCop:
+	sta 3 savedPC,2
+	mov 0 3				; destination address
+	sta 1 temp,2
+	lda 0 @temp,2			; high order
+	sta 0 0,3			; save it
+	isz temp,2
+	lda 0 @temp,2
+	sta 0 1,3			; low order
+	lda 3 savedPC,2
+	jmp 1,3				;RETURN INTEGER PART...
+
+
+.UMulDiv:
+	sta 3 savedPC,2
+	mov 2,3				; stack pointer
+	mov 0 2				; a
+	lda 0 extraArguments,3			; c
+	movzr 0 0			; c/2 for rounding
+	mul				; go multiply
+	lda 2 extraArguments,3			; c
+	div
+	 mov# 0,0
+	mov 1 0				; answer
+	mov 3 2
+	lda 3 savedPC,2
+	jmp 1,3
+
+.MulMod:
+	sta 3 savedPC,2
+	mov 2,3				; stack pointer
+	mov 0 2				; a
+	sub 0 0
+	mul				; go multiply
+	lda 2 extraArguments,3			; c
+	div
+	 mov# 0,0
+	mov 3 2		;div returns remainder in AC0
+	lda 3 savedPC,2
+	jmp 1,3
+
+.MulFull:
+;this routine uses the following trick.  In two's complement notation, -k
+; is represented as 2^16 - k.  Thus, for example, an unsigned multiply
+; of (2^16 - k)*(2^16 - m) would yield 2^32 - (k + m)*2^16 + k*m.
+; This routine calculates the correction factor k + m and adds it to the
+; high order word of the product.  Similarly if only one operand is negative.
+	sta 3 savedPC,2
+	mov 2 3			; stack pointer
+	mov 0 2			; a
+
+	movl#		1,1,snc	; leave a as correction factor if b is negative
+	 sub		0,0		; otherwise zero correction factor
+	movl#		2,2,szc		; if a is negative ...
+	 add		1,0		; ... add b to the correction factor
+	sta		0,temp,3	; finally save correction
+	sub		0,0		; and clear 0 for multiplication
+	mul
+	lda		2,temp,3	;pick up correction factor
+	sub		2,0		; subtract it from high order word
+	lda		2,extraArguments,3
+	sta		0,0,2		;give high order to user
+	sta		1,1,2		; and low order
+	mov		3,2
+	lda		3,savedPC,2
+	jmp		1,3
+	
+
+.DivFull:
+	sta 3 savedPC,2
+	mov 2 3			; stack pointer
+	sta	1,temp,3	; stash divisor for now
+	movz	0,2		; => dividend (and clear carry)
+	lda	0,0,2		; high order dividend
+	lda	1,1,2		; low order dividend
+	lda	2,temp,3	; divisor again
+	movl#	0,0,snc	; skip if dividend is negative
+	 jmp	.+5		; don't bother with next if positive
+
+	neg	1,1,szr		; negate double word dividend
+	com	0,0,skp
+	neg	0,0
+	negz	2,2		; also negate divisor (leave carry clear)
+
+	movl#	2,2,szc		; is divisor negative?
+	 nego	2,2		; if so, negate it and set carry
+
+	div			; div preserves carry
+	 SWAT			; SWAT
+	mov	1,0,szc		; answer and if carry was set ...
+	 neg	0,0		; ... negate it
+
+	mov 3 2
+	lda 3 savedPC,2
+	jmp 1 3
+
+.Ugt:	sgtu 0,1
+	mkzero 0,0,skp
+	mkminusone 0,0
+	jmp 1,3
+
+.TGr:	sta 3 savedPC,2
+	subzr 3,3
+	and 1,3
+	addl 0,3
+	adc# 1,0,snc
+	 sub 0,0,skp		; false
+	adc 0,0			; true
+	lda 3 savedPC,2
+	jmp 1,3
+
+	.END
+
+        
+
