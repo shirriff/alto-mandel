@@ -1,0 +1,89 @@
+get "streams.d"
+external
+[
+Ws;
+Wns;
+MulDiv;
+DoubleAdd;
+keys;
+Gets;
+]
+
+let Main() be
+[
+let v = vec 30705 // Pixel buffer
+v = (v + 1) & -2 // Data needs to be 32-bit aligned
+let dcb = vec 5 // Display control block: defines display region
+dcb = (dcb + 1) & -2
+dcb!0 = 0 // End of display list
+dcb!1 = 38 // 38 words per line
+dcb!2 = v // Data pointer
+dcb!3 = 404 // # lines / 2
+let lvdas = #420 // Address holds pointer to display control block
+lvdas!0 = 0 // stop display
+
+for i = 0 to 30703 do v!i = 0 // Clear display
+
+// Values are represented as fixed point with 12 bits to right of decimal point.
+let x0 = (-2) lshift 12 // Left boundary: x = -2
+let x1 = 1 lshift 12 // Right boundary: x = 1
+let y0 = (-1) lshift 12 // Top boundary: y = -1
+let y1 = 1 lshift 12 // Bottom boundary: y = 1
+let xstep = (x1 - x0) / 600 // Render 600 pixels horizontally
+let ystep = (y1 - y0) / 400 // Render 400 pixels vertically
+y0 = -200 * ystep // Fix starting point so we'll hit the x axis exactly
+let x2 = vec 2 // double word to hold x^2
+let y2 = vec 2 // double word to hold y^2
+let xy = vec 2 // double word to hold x * y
+
+v=v+200*38 // start 200 scans down.
+let v2 = v + 400*38 // start at bottom
+let cy = y0 // Constant value, y part. I.e. the z value for this pixel
+for ypos = 0 to 200 do // line count. Note "for" limits are inclusive.
+  [
+  let cx = x0 // Constant value, x part.
+  for h = 0 to 37 do // horizontal word count
+    [
+    let b = #100000 // horizontal bit count
+      [
+      let x = cx // The complex z value is represented as x + i*y
+      let y = cy
+      let n=20
+        [
+        let x2 =(x ls 0) ? -x,x // x^2 will be +ve anyway, so just abs.
+        x2 = MulDiv(x2,x2,4096) // yield x^2 single precision.
+        let y2 = (y ls 0) ? -y,y // ditto for y^2.
+        y2 = MulDiv(y2,y2,4096) // yield = y^2, single precision
+        if x2+ y2 ge 16384 then break // Quit if x^2 + y^2 > 4
+
+        let xysgn=x xor y // top bit is sign for result.
+        if x ls 0 then x=-x
+        if y ls 0 then y=-y
+        let xy=MulDiv(x,y,4096) // the unsigned version.
+        if xysgn ls 0 then xy=-xy // correct the sign.
+
+
+        // z = z^2 + c (complex arithmetic, z = x+iy)
+        // i.e. y = 2xy + cy
+        // x = x^2 - y2 + cx
+        y=xy + xy + cy
+        x=x2 - y2 + cx
+        n=n-1
+        ] repeatuntil n eq 0
+        
+        if n eq 0 then [
+	   v!0=v!0 % b // set the pixel
+	   v2!0=v2!0 % b // set the pixel
+	]
+        cx = cx + xstep // Move to next cx value
+        b=b rshift 1 // next bitmask (rshift is unsigned)
+      ] repeatwhile b // until all the bits in this video word are done.
+      v=v+1 // next video word.
+      v2=v2+1
+    ]
+  cy = cy + ystep // Move to next cy value
+  v2 = v2 - 76 // Move up a line
+  ]
+lvdas!0 = dcb
+Gets(keys) // Get a key, i.e. wait for a keypress
+]
